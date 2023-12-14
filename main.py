@@ -45,11 +45,10 @@ def find_optimal_param(param_range, X_train, X_test, Y_train, Y_test, model_name
         f_score_train.append(f1_score(Y_train, Y_predict_train, average= 'micro'))
 
     matrix = np.matrix(np.c_[param_range, f_score_test, f_score_train])
-    models = pd.DataFrame(data=matrix,
-                          columns=[param, 'test F-Measure', 'train F-Measure'])
+    models = pd.DataFrame(data=matrix)
 
-    best_index = models['test F-Measure'].idxmax()
-    best_value = models.iloc[best_index]['test F-Measure']
+    best_index = models[1].idxmax()
+    best_value = models.iloc[best_index][2]
 
     print('Best F-measure for {} using depth value {} index {} '.format(model_name, best_value, best_index))
 
@@ -85,10 +84,9 @@ def find_optimal_param(param_range, X_train, X_test, Y_train, Y_test, model_name
     optimal_model.fit(X_train, Y_train)
 
     confusion_matrix_opt = confusion_matrix(Y_test, optimal_model.predict(X_test))
-    conf_matrix = pd.DataFrame(data=confusion_matrix_opt, columns=['predicted ham', 'predicted spam'],
-                               index=['actual ham', 'actual spam'])
 
-    print(conf_matrix)
+
+    print(confusion_matrix_opt)
 
 
 print('\n1--------------------------')
@@ -293,10 +291,10 @@ X_test = scaler.transform(X_test)
 Y_train = np_utils.to_categorical(Y_train, 2)
 Y_test = np_utils.to_categorical(Y_test, 2)
 
-print(X_train)
-print(X_test)
-print(Y_test)
-print(Y_train)
+# print(X_train)
+# print(X_test)
+# print(Y_test)
+# print(Y_train)
 
 print('\n7.2--------------------------')
 
@@ -391,9 +389,149 @@ plt.show()
 X_train = X_train.reshape(X_train.shape[0], 28*28)
 X_test = X_test.reshape(X_test.shape[0], 28*28)
 
-# print(X_train)
-# print(X_test)
-# print(y_test)
-# print(y_train)
+print(X_train)
+print(X_test)
+print(y_test)
+print(y_train)
 
-find_optimal_param(epoch_range, X_train, X_test, y_train, y_test, 'cbc')
+
+
+f_score_test = []
+f_score_train = []
+param = ''
+for k in epoch_range:
+
+    model = CatBoostClassifier(n_estimators=k)
+    param = 'n_estim.'
+
+    model.fit(X_train, y_train)  # Обучение модели
+    # print("our accuracy is:{}".format(multNB.score(X_train, Y_train)))
+
+    Y_predict = model.predict(X_test)
+    Y_predict_train = model.predict(X_train)
+
+    f_score_test.append(f1_score(y_test, Y_predict, average= 'micro'))
+    f_score_train.append(f1_score(y_train, Y_predict_train, average= 'micro'))
+
+matrix = np.matrix(np.c_[epoch_range, f_score_test, f_score_train])
+models = pd.DataFrame(data=matrix)
+
+best_index = models[1].idxmax()
+best_value = models.iloc[best_index][2]
+
+print('Best F-measure for {} using depth value {} index {} '.format('cbc', best_value, best_index))
+
+plt.subplot(1, 2, 1)
+plt.plot(epoch_range, f_score_test)
+plt.plot(epoch_range[best_index], f_score_test[best_index], marker='o', color='red')
+plt.annotate(xy=(epoch_range[best_index], f_score_test[best_index]),
+             text='({}, {})'.format(("%.1f" % f_score_test[best_index]), ("%.1f" % epoch_range[best_index])))
+plt.title("Test F_Measure", fontsize=10)
+plt.ylabel('Accuracy score(%)', fontsize=8)
+plt.xlabel(param, fontsize=8)
+plt.grid(True)
+
+plt.subplot(1, 2, 2)
+plt.plot(epoch_range, f_score_train)
+plt.plot(epoch_range[best_index], f_score_train[best_index], marker='o', color='red')
+plt.annotate(xy=(epoch_range[best_index], f_score_train[best_index]),
+             text='({}, {})'.format(("%.1f" % f_score_train[best_index]), ("%.1f" % epoch_range[best_index])))
+plt.title("Train F_Measure", fontsize=10)
+plt.ylabel('Accuracy score(%)', fontsize=8)
+plt.xlabel(param, fontsize=8)
+plt.grid(True)
+
+plt.show()
+
+
+optimal_model = CatBoostClassifier(n_estimators=epoch_range[best_index])
+
+optimal_model.fit(X_train, y_train)
+
+confusion_matrix_opt = confusion_matrix(y_test, optimal_model.predict(X_test))
+conf_matrix = pd.DataFrame(data=confusion_matrix_opt, columns=['0', '1', '2', '3', '4','5','6','7', '8', '9'],
+                           index=['0', '1', '2', '3', '4','5','6','7', '8', '9'])
+
+print(conf_matrix)
+
+print('\n--------------------------')
+y_train = np_utils.to_categorical(y_train, 10)
+y_test = np_utils.to_categorical(y_test, 10)
+
+
+
+NB_CLASSES = y_train.shape[1]
+INPUT_SHAPE = (X_train.shape[1],)
+model = Sequential()
+model.add(Dense(32, input_shape=INPUT_SHAPE))
+model.add(Activation('relu'))
+model.add(Dropout(0.3))
+model.add(Dense(16))
+model.add(Activation('relu'))
+model.add(Dense(8))
+model.add(Activation('relu'))
+model.add(Dense(NB_CLASSES))
+model.add(Activation('softmax'))
+model.summary()
+
+model.compile(loss='binary_crossentropy', optimizer = 'adam', metrics=[keras.metrics.Precision(), keras.metrics.Recall()])
+
+history = model.fit(X_train, y_train, batch_size = 32, epochs = EPOCHS, verbose = 1, validation_data = (X_test, y_test))
+
+f1_score_list_train = []
+f1_score_list_test = []
+for i in range(EPOCHS):
+    # a = history.history()
+    # print(a)
+    f1_score_list_train.append(2 * history.history['precision'][i] *
+    history.history['recall'][i] / (history.history['precision'][i] +
+    history.history['recall'][i]))
+#
+    f1_score_list_test.append(2 * history.history['val_precision'][i] *
+    history.history['val_recall'][i] / (history.history['val_precision'][i] +
+    history.history['val_recall'][i]))
+
+# print(len(f1_score_list_test))
+# print(f1_score_list_train)
+
+matrix = np.matrix(np.c_[epoch_range, f1_score_list_test, f1_score_list_train])
+models = pd.DataFrame(data=matrix,
+                      columns=['epoch', 'test F-Measure', 'train F-Measure'])
+
+best_index = models['test F-Measure'].idxmax()
+best_value = models.iloc[best_index]['test F-Measure']
+
+plt.subplot(1, 2, 1)
+plt.plot(epoch_range, f1_score_list_test)
+#
+plt.plot(epoch_range[best_index], f1_score_list_test[best_index], marker='o', color='red')
+plt.annotate(xy=(epoch_range[best_index], f1_score_list_test[best_index]),
+             text='({}, {})'.format(("%.1f" % best_value), ("%.1f" % epoch_range[best_index])))
+plt.title("Test F_Measure", fontsize=10)
+plt.ylabel('Accuracy score(%)', fontsize=8)
+plt.xlabel('Epoch', fontsize=8)
+plt.grid(True)
+
+plt.subplot(1, 2, 2)
+plt.plot(epoch_range, f1_score_list_train)
+plt.annotate(xy=(epoch_range[best_index], f1_score_list_train[best_index]),
+             text='({}, {})'.format(("%.1f" % f1_score_list_train[best_index]), ("%.1f" % epoch_range[best_index])))
+plt.title("Train F_Measure", fontsize=10)
+plt.ylabel('Accuracy score(%)', fontsize=8)
+plt.xlabel('Epoch', fontsize=8)
+plt.grid(True)
+
+plt.show()
+
+
+
+y_prediction = model.predict(X_test)
+y_prediction = np.argmax (y_prediction, axis = 1)
+y_test=np.argmax(y_test, axis=1)
+
+result = confusion_matrix(y_test, y_prediction , normalize='pred')
+cm = pd.DataFrame(data = result, columns = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+                  index = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+
+ax = sns.heatmap(cm, annot=True, cmap="viridis", linewidth=0.5)
+plt.show()
